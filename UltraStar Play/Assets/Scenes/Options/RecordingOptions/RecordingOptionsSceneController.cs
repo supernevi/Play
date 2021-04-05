@@ -16,7 +16,7 @@ public class RecordingOptionsSceneController : MonoBehaviour, INeedInjection
     public AmplificationSlider amplificationSlider;
     public NoiseSuppressionSlider noiseSuppressionSlider;
     public MicDelayNumberSpinner delaySpinner;
-    public CalibrateMicDelayButton calibrateMicDelayButton;
+    public AutoCalibrateMicDelayButton autoCalibrateMicDelayButton;
     public RecordingDeviceColorSlider colorSlider;
     public Toggle enabledToggle;
     public Button deleteButton;
@@ -69,7 +69,7 @@ public class RecordingOptionsSceneController : MonoBehaviour, INeedInjection
         noiseSuppressionSlider.SetMicProfile(micProfile);
         delaySpinner.SetMicProfile(micProfile);
         colorSlider.SetMicProfile(micProfile);
-        calibrateMicDelayButton.MicProfile = micProfile;
+        autoCalibrateMicDelayButton.MicProfile = micProfile;
         enabledToggle.isOn = micProfile.IsEnabled;
 
         bool hasNoHardware = !micProfile.IsConnected;

@@ -56,7 +56,7 @@ public class DynamicallyCreatedImage : MonoBehaviour
         }
     }
 
-    private void TryCreateTexture()
+    public void TryCreateTexture()
     {
         if (rectTransform == null
             || rawImage == null)

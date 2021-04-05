@@ -60,6 +60,12 @@ public class AudioWaveFormVisualizer : MonoBehaviour
             return;
         }
 
+        if (dynImage.TextureWidth <= 0 || dynImage.TextureHeight <= 0)
+        {
+            dynImage.TryCreateTexture();
+            return;
+        }
+
         dynImage.ClearTexture();
 
         Vector2[] minMaxValues = CalculateMinAndMaxValues(samples);

@@ -10,7 +10,7 @@ using UniRx;
 // Disable warning about fields that are never assigned, their values are injected.
 #pragma warning disable CS0649
 
-public class CalibrateMicDelayButton : MonoBehaviour, INeedInjection
+public class AutoCalibrateMicDelayButton : MonoBehaviour, INeedInjection
 {
     [InjectedInInspector]
     public MicPitchTracker micPitchTracker;
