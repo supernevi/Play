@@ -1,12 +1,16 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Text;
 using System.Threading;
 using UniInject;
 using UniRx;
 using UnityEngine;
+using UnityEngine.InputSystem.Utilities;
+using UnityEngine.Networking;
 
 // Handles loading and caching of SongMeta and related data structures (e.g. the voices are cached).
 public class SongMetaManager : AbstractSingletonBehaviour
@@ -33,6 +37,8 @@ public class SongMetaManager : AbstractSingletonBehaviour
     private static List<string> lastSongDirs;
     private static bool isSongScanStarted;
     private static bool isSongScanFinished;
+
+    private static bool isKaraokeProviderRequestDone;
     public static bool IsSongScanFinished
     {
         get
@@ -194,6 +200,132 @@ public class SongMetaManager : AbstractSingletonBehaviour
             Debug.Log($"Finished song-scan-thread after {stopwatch.ElapsedMilliseconds} ms. Loaded {allSongMetas.Count} songs. Errors: {SongErrors.Count}, Warnings: {SongWarnings.Count}.");
             songScanFinishedEventStream.OnNext(new SongScanFinishedEvent());
         });
+
+        Debug.Log("Getting KaraokeProvider songs from http://localhost:8080/songs");
+        UnityWebRequest request = UnityWebRequest.Get("http://localhost:8080/songs");
+
+        request.SendWebRequest()
+            .AsAsyncOperationObservable()
+            .Subscribe(_ => LoadKaraokeProviderSongs(request),
+                exception => Debug.LogException(exception),
+                () => LoadKaraokeProviderSongs(request));
+    }
+
+    private void LoadKaraokeProviderSongs(UnityWebRequest webRequest)
+    {
+        if (isKaraokeProviderRequestDone
+            || !webRequest.isDone)
+        {
+            return;
+        }
+
+        isKaraokeProviderRequestDone = true;
+        if (webRequest.result is not UnityWebRequest.Result.Success)
+        {
+            Debug.LogError($"Getting song metas from '{webRequest.url}'"
+                           + $" has result {webRequest.result}.\n{webRequest.error}");
+            return;
+        }
+
+        string body = webRequest.downloadHandler.text;
+        List<KaraokeProviderSongMetaDto> webSongMetas = JsonConverter.FromJson<List<KaraokeProviderSongMetaDto>>(body);
+
+        Debug.Log($"{webSongMetas.Count} songs found");
+
+        foreach(KaraokeProviderSongMetaDto webSongMeta in webSongMetas)
+        {
+            fetchTextFileAndAddToSongMeta(webSongMeta);
+        }
+    }
+
+    private void fetchTextFileAndAddToSongMeta(KaraokeProviderSongMetaDto source)
+    {
+        UnityWebRequest request = UnityWebRequest.Get("http://localhost:8080" + source.textLink);
+        request.SendWebRequest()
+            .AsAsyncOperationObservable()
+            .Subscribe(_ => SaveKaraokeProviderSongAndParse(request, source),
+                exception => Debug.LogException(exception));
+    }
+
+    private void SaveKaraokeProviderSongAndParse(UnityWebRequest webRequest, KaraokeProviderSongMetaDto source)
+    {
+        if (!webRequest.isDone)
+        {
+            return;
+        }
+
+        if (webRequest.result is not UnityWebRequest.Result.Success)
+        {
+            Debug.LogError($"Getting song text from '{webRequest.url}' for song '{source.artist} - {source.title}'"
+                           + $" has result {webRequest.result}.\n{webRequest.error}");
+            return;
+        }
+
+        string folderName = Application.persistentDataPath + "/KaraokeProviderSongs/" + source.artist + "/" + source.title + "/";
+        string fileName = source.artist + " - " + source.title + ".txt";
+
+     
+        Directory.CreateDirectory(folderName);
+
+        string fullPath = folderName + fileName;
+        File.WriteAllText(fullPath, webRequest.downloadHandler.text);
+
+        SongMeta newSongMeta;
+        try
+        {
+            newSongMeta = SongMetaBuilder.ParseFile(fullPath, out List<SongIssue> newSongIssues, null, Settings.DeveloperSettings.useUniversalCharsetDetector);
+            allSongIssues.AddRange(newSongIssues);
+        }
+        catch (SongMetaBuilderException e)
+        {
+            Debug.LogError("SongMetaBuilderException: " + fullPath + "\n" + e.Message);
+            return;
+        }
+        catch (Exception ex)
+        {
+            Debug.LogException(ex);
+            Debug.LogError($"Failed to load {fullPath}");
+            return;
+        }
+
+        string urlBasePath = "http://localhost:8080";
+
+        newSongMeta.Mp3 = prefixIfNotNullOrEmpty(urlBasePath, source.audioLink);
+        newSongMeta.Video = prefixIfNotNullOrEmpty(urlBasePath, source.videoLink);
+        newSongMeta.Background = prefixIfNotNullOrEmpty(urlBasePath, source.backgroundLink);
+        newSongMeta.Cover = prefixIfNotNullOrEmpty(urlBasePath, source.coverLink);
+
+        AddSongMeta(newSongMeta);
+        Debug.Log($"'{newSongMeta.Artist} - {newSongMeta.Title}' added");
+    }
+
+    private string prefixIfNotNullOrEmpty(string prefix, string value)
+    {
+        if(!String.IsNullOrEmpty(value))
+        {
+            return prefix + value;
+        }
+        return value;
+    }
+
+    [Serializable]
+    class KaraokeProviderSongMetaDto
+    {
+        public string songId { get; set; }
+
+        public string audioLink { get; set; }
+
+        public string videoLink { get; set; }
+
+        public string coverLink { get; set; }
+
+        public string backgroundLink { get; set; }
+
+        public string textLink { get; set; }
+
+        public string artist { get; set; }
+
+        public string title { get; set; }
     }
 
     private void LoadSongMetasFromTxtFiles(List<string> txtFiles, out List<SongMeta> songMetas, out List<SongIssue> songIssues)

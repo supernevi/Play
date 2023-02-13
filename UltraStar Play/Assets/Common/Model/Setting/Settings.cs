@@ -14,6 +14,8 @@ public class Settings : ISettings
     public string LastMicProfileNameInRecordingOptionsScene { get; set; }
     public WebcamSettings WebcamSettings { get; set; } = new();
 
+    public InternetSettings InternetSettings { get; set; } = new();
+
     public SongEditorSettings SongEditorSettings { get; set; } = new();
     public SongSelectSettings SongSelectSettings { get; set; } = new();
 
