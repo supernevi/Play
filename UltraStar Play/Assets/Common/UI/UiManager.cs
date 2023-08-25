@@ -1,11 +1,9 @@
 ﻿using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
 using ProTrans;
 using UniInject;
-using UniRx;
 using UnityEngine;
 using UnityEngine.UIElements;
 
@@ -25,10 +23,10 @@ public class UiManager : AbstractSingletonBehaviour, INeedInjection
     private static Dictionary<string, string> relativePlayerProfileImagePathToAbsolutePath = new();
 
     [InjectedInInspector]
-    public VisualTreeAsset notificationOverlayVisualTreeAsset;
+    public VisualTreeAsset notificationOverlayUi;
 
     [InjectedInInspector]
-    public VisualTreeAsset notificationVisualTreeAsset;
+    public VisualTreeAsset notificationUi;
 
     [InjectedInInspector]
     public VisualTreeAsset dialogUi;
@@ -69,30 +67,25 @@ public class UiManager : AbstractSingletonBehaviour, INeedInjection
     }
 
     private Label DoCreateNotification(
-        string text,
-        params string[] additionalTextClasses)
+        string text)
     {
         VisualElement notificationOverlay = uiDocument.rootVisualElement.Q<VisualElement>("notificationOverlay");
         if (notificationOverlay == null)
         {
-            notificationOverlay = notificationOverlayVisualTreeAsset.CloneTree()
+            notificationOverlay = notificationOverlayUi.CloneTree()
                 .Children()
                 .First();
             uiDocument.rootVisualElement.Children().First().Add(notificationOverlay);
         }
 
-        TemplateContainer templateContainer = notificationVisualTreeAsset.CloneTree();
+        TemplateContainer templateContainer = notificationUi.CloneTree();
         VisualElement notification = templateContainer.Children().First();
         Label notificationLabel = notification.Q<Label>("notificationLabel");
         notificationLabel.text = text;
-        if (additionalTextClasses != null)
-        {
-            additionalTextClasses.ForEach(className => notificationLabel.AddToClassList(className));
-        }
         notificationOverlay.Add(notification);
 
         // Fade out then remove
-        StartCoroutine(FadeOutVisualElement(notification, 2, 1));
+        StartCoroutine(AnimationUtils.FadeOutThenRemoveVisualElementCoroutine(notification, 2, 1));
 
         return notificationLabel;
     }
@@ -103,10 +96,9 @@ public class UiManager : AbstractSingletonBehaviour, INeedInjection
     }
 
     public static Label CreateNotification(
-        string text,
-        params string[] additionalTextClasses)
+        string text)
     {
-        return Instance.DoCreateNotification(text, additionalTextClasses);
+        return Instance.DoCreateNotification(text);
     }
 
     public static IEnumerator FadeOutVisualElement(
@@ -136,41 +128,47 @@ public class UiManager : AbstractSingletonBehaviour, INeedInjection
         }
     }
 
-    public MessageDialogControl CreateHelpDialogControl(string dialogTitle, Dictionary<string, string> titleToContentMap, Action onCloseHelp)
+    public MessageDialogControl CreateDialogControl(string dialogTitle)
     {
-        VisualElement helpDialog = dialogUi.CloneTree().Children().FirstOrDefault();
-        uiDocument.rootVisualElement.Add(helpDialog);
-        helpDialog.AddToClassList("wordWrap");
+        VisualElement dialogVisualElement = dialogUi.CloneTree().Children().FirstOrDefault();
+        uiDocument.rootVisualElement.Add(dialogVisualElement);
+        dialogVisualElement.AddToClassList("wordWrap");
 
-        MessageDialogControl helpDialogControl = injector
-            .WithRootVisualElement(helpDialog)
+        MessageDialogControl dialogControl = injector
+            .WithRootVisualElement(dialogVisualElement)
             .CreateAndInject<MessageDialogControl>();
-        helpDialogControl.Title = dialogTitle;
+        dialogControl.Title = dialogTitle;
 
+        return dialogControl;
+    }
+    
+    public MessageDialogControl CreateHelpDialogControl(
+        string dialogTitle,
+        Dictionary<string, string> titleToContentMap)
+    {
+        VisualElement dialogVisualElement = dialogUi.CloneTree().Children().FirstOrDefault();
+        uiDocument.rootVisualElement.Add(dialogVisualElement);
+        dialogVisualElement.AddToClassList("wordWrap");
+        
+        MessageDialogControl dialogControl = injector
+            .WithRootVisualElement(dialogVisualElement)
+            .CreateAndInject<MessageDialogControl>();
+        dialogControl.Title = dialogTitle;
+
+        AccordionGroup accordionGroup = new();
+        dialogControl.AddVisualElement(accordionGroup);
+            
         void AddChapter(string title, string content)
         {
-            AccordionItemControl accordionItemControl = CreateAccordionItemControl();
-            accordionItemControl.Title = title;
-            accordionItemControl.AddVisualElement(new Label(content));
-            helpDialogControl.AddVisualElement(accordionItemControl.VisualElement);
+            AccordionItem accordionItem = new(title);
+            accordionItem.style.width = new StyleLength(new Length(100, LengthUnit.Percent));
+            accordionItem.Add(new Label(content));
+            accordionGroup.Add(accordionItem);
         }
 
         titleToContentMap.ForEach(entry => AddChapter(entry.Key, entry.Value));
 
-        Button closeDialogButton = helpDialogControl.AddButton(TranslationManager.GetTranslation(R.Messages.close),
-            onCloseHelp);
-        closeDialogButton.Focus();
-
-        return helpDialogControl;
-    }
-
-    public AccordionItemControl CreateAccordionItemControl()
-    {
-        VisualElement accordionItem = accordionUi.CloneTree().Children().FirstOrDefault();
-        AccordionItemControl accordionItemControl = injector
-            .WithRootVisualElement(accordionItem)
-            .CreateAndInject<AccordionItemControl>();
-        return accordionItemControl;
+        return dialogControl;
     }
 
     public void LoadPlayerProfileImage(string imagePath, Action<Sprite> onSuccess)

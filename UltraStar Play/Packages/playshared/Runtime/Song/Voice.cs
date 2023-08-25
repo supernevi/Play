@@ -9,6 +9,7 @@ public class Voice : ISerializationCallbackReceiver
     public static readonly string soloVoiceName = "";
     public static readonly string firstVoiceName = "P1";
     public static readonly string secondVoiceName = "P2";
+    public static readonly IReadOnlyList<string> voiceNames = new List<string> { firstVoiceName, secondVoiceName, };
 
     public static readonly IComparer<Voice> comparerByName = new VoiceComparerByName();
 
@@ -130,11 +131,12 @@ public class Voice : ISerializationCallbackReceiver
         }
     }
 
-    public bool VoiceNameEquals(string otherVoiceName)
+    public static bool VoiceNameEquals(string a, string b)
     {
-        return otherVoiceName == Name
-               || (otherVoiceName.IsNullOrEmpty() && Name.IsNullOrEmpty())
-               || (otherVoiceName == firstVoiceName && Name == soloVoiceName);
+        return a == b
+               || (a.IsNullOrEmpty() && b.IsNullOrEmpty())
+               || (a == firstVoiceName && b == soloVoiceName)
+                || (a == soloVoiceName && b == firstVoiceName);
     }
 
     public static string NormalizeVoiceName(string voiceName)

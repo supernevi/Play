@@ -17,6 +17,9 @@ public class EditPlaylistControl : MonoBehaviour, INeedInjection, ITranslator
 
     [Inject(UxmlName = R.UxmlNames.editPlaylistOverlay)]
     private VisualElement editPlaylistOverlay;
+    
+    [Inject(UxmlName = R.UxmlNames.searchPropertyDropdownOverlay)]
+    private VisualElement searchPropertyDropdownOverlay;
 
     [Inject(UxmlName = R.UxmlNames.playlistChooserDropdownTitle)]
     private Label playlistChooserDropdownTitle;
@@ -57,28 +60,28 @@ public class EditPlaylistControl : MonoBehaviour, INeedInjection, ITranslator
         songSelectSceneControl.PlaylistChooserControl.Selection
             .Subscribe(newValue => currentPlaylist = newValue);
 
-        editPlaylistButton.RegisterCallbackButtonTriggered(() => ShowEditCurrentPlaylistDialog());
-        createPlaylistButton.RegisterCallbackButtonTriggered(() => CreateThenEditNewPlaylist());
-        submitEditPlaylistButton.RegisterCallbackButtonTriggered(() => SubmitEditPlaylistDialog());
+        editPlaylistButton.RegisterCallbackButtonTriggered(_ => ShowEditCurrentPlaylistDialog());
+        createPlaylistButton.RegisterCallbackButtonTriggered(_ => CreateThenEditNewPlaylist());
+        submitEditPlaylistButton.RegisterCallbackButtonTriggered(_ => SubmitEditPlaylistDialog());
         playlistNameTextField.RegisterValueChangedCallback(evt => OnPlaylistNameTextFieldChanged(evt.newValue));
 
-        deletePlaylistButton.RegisterCallbackButtonTriggered(() =>
+        deletePlaylistButton.RegisterCallbackButtonTriggered(_ =>
         {
             ShowConfirmAndCancelDeleteButtons();
             cancelDeletePlaylistButton.Focus();
         });
-        cancelDeletePlaylistButton.RegisterCallbackButtonTriggered(() =>
+        cancelDeletePlaylistButton.RegisterCallbackButtonTriggered(_ =>
         {
             ShowDeleteAndSubmitButtons();
             submitEditPlaylistButton.Focus();
         });
-        confirmDeletePlaylistButton.RegisterCallbackButtonTriggered(() =>
+        confirmDeletePlaylistButton.RegisterCallbackButtonTriggered(_ =>
         {
             string errorMessage = playlistManager.TryRemovePlaylist(currentPlaylist);
             if (!errorMessage.IsNullOrEmpty())
             {
                 Debug.LogError(errorMessage);
-                UiManager.CreateNotification(errorMessage, "error");
+                UiManager.CreateNotification(errorMessage);
             }
             HideEditPlaylistDialog();
         });
@@ -128,8 +131,8 @@ public class EditPlaylistControl : MonoBehaviour, INeedInjection, ITranslator
         titleText = "Edit Playlist";
         editPlaylistDialogTitle.text = titleText;
         playlistNameTextField.value = currentPlaylist.Name;
-        songSelectSceneControl.HideMenuOverlay();
         editPlaylistOverlay.ShowByDisplay();
+        searchPropertyDropdownOverlay.HideByDisplay();
 
         ShowDeleteAndSubmitButtons();
     }
@@ -167,15 +170,13 @@ public class EditPlaylistControl : MonoBehaviour, INeedInjection, ITranslator
         {
             // Show error in UI
             Debug.LogError(errorMessage);
-            UiManager.CreateNotification(errorMessage, "error");
+            UiManager.CreateNotification(errorMessage);
         }
-        editPlaylistOverlay.HideByDisplay();
+        HideEditPlaylistDialog();
     }
 
     public void UpdateTranslation()
     {
         playlistChooserDropdownTitle.text = TranslationManager.GetTranslation(R.Messages.songSelectScene_playlistDropdownTitle);
-        editPlaylistButton.text = TranslationManager.GetTranslation(R.Messages.songSelectScene_editPlaylistButton);
-        createPlaylistButton.text = TranslationManager.GetTranslation(R.Messages.songSelectScene_createPlaylistButton);
     }
 }

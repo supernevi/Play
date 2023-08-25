@@ -2,6 +2,7 @@
 using UniInject;
 using UniRx;
 using UnityEngine;
+using UnityEngine.UIElements;
 
 // Disable warning about fields that are never assigned, their values are injected.
 #pragma warning disable CS0649
@@ -14,6 +15,13 @@ public class SongSelectSongPreviewControl : SongPreviewControl
     [Inject]
     private SongSelectSceneData sceneData;
 
+    [Inject(UxmlName = R.UxmlNames.songPreviewVideoImage)]
+    private VisualElement songPreviewVideoImage;
+
+    [Inject(UxmlName = R.UxmlNames.songPreviewBackgroundImage)]
+    private VisualElement songPreviewBackgroundImage;
+
+    
     private SongEntryControl currentSongEntryControl;
 
     private int initialSongIndex;
@@ -32,15 +40,20 @@ public class SongSelectSongPreviewControl : SongPreviewControl
             {
                 return;
             }
-            currentSongEntryControl.SongPreviewVideoImage.ShowByDisplay();
-            currentSongEntryControl.SongPreviewVideoImage.SetBackgroundImageAlpha(0);
-            currentSongEntryControl.SongPreviewBackgroundImage.ShowByDisplay();
-            currentSongEntryControl.SongPreviewBackgroundImage.SetBackgroundImageAlpha(0);
+
+            if (SongMetaUtils.VideoResourceExists(currentSongEntryControl.SongMeta))
+            {
+                songPreviewVideoImage.ShowByDisplay();
+                songPreviewVideoImage.SetBackgroundImageAlpha(0);
+            }
+
+            songPreviewBackgroundImage.ShowByDisplay();
+            songPreviewBackgroundImage.SetBackgroundImageAlpha(0);
         });
         StopSongPreviewEventStream.Subscribe(_ =>
         {
-            songRouletteControl.SongEntryControls.ForEach(it => it.SongPreviewVideoImage.HideByDisplay());
-            songRouletteControl.SongEntryControls.ForEach(it => it.SongPreviewBackgroundImage.HideByDisplay());
+            songPreviewVideoImage.HideByDisplay();
+            songPreviewBackgroundImage.HideByDisplay();
         });
 
         // Video / background image fade-in
@@ -50,7 +63,7 @@ public class SongSelectSongPreviewControl : SongPreviewControl
             {
                 return;
             }
-            currentSongEntryControl.SongPreviewVideoImage.SetBackgroundImageAlpha(newValue);
+            songPreviewVideoImage.SetBackgroundImageAlpha(newValue);
         });
         BackgroundImageFadeIn.Subscribe(newValue =>
         {
@@ -58,7 +71,7 @@ public class SongSelectSongPreviewControl : SongPreviewControl
             {
                 return;
             }
-            currentSongEntryControl.SongPreviewBackgroundImage.SetBackgroundImageAlpha(newValue);
+            songPreviewBackgroundImage.SetBackgroundImageAlpha(newValue);
         });
 
         if (sceneData != null
@@ -80,12 +93,6 @@ public class SongSelectSongPreviewControl : SongPreviewControl
 
     public void StartSongPreview(SongSelection songSelection)
     {
-        if (songRouletteControl.IsDrag
-            || songRouletteControl.IsFlickGesture)
-        {
-            return;
-        }
-
         if (songSelection.SongIndex != initialSongIndex)
         {
             isFirstSelectedSong = false;
